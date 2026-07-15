@@ -34,7 +34,25 @@ rows disappear and the battery arrow flips direction.
   `/sys/class/power_supply` and SMC power sensors from `/sys/class/hwmon`)
 - bash, awk, tput — nothing else
 
-## Install
+## Install (Fedora / Asahi Linux)
+
+Two commands — add the repo, install the package:
+
+```bash
+sudo dnf config-manager addrepo --from-repofile=https://fiedorpw.github.io/asahi-power/asahi-power.repo
+sudo dnf install asahi-power
+```
+
+Then just run:
+
+```bash
+power
+```
+
+(On older dnf4 the first command is
+`sudo dnf config-manager --add-repo https://fiedorpw.github.io/asahi-power/asahi-power.repo`.)
+
+### From source
 
 ```bash
 git clone https://github.com/FiedorPw/asahi-power.git
@@ -47,6 +65,12 @@ Optionally drop it on your `PATH`:
 ```bash
 ln -s "$PWD/power" ~/.local/bin/power
 ```
+
+### Packaging
+
+The RPM is built from [`asahi-power.spec`](asahi-power.spec); the dnf
+repository is hosted on the `gh-pages` branch (built with `rpmbuild` +
+`createrepo_c`).
 
 ## How the rendering works
 
