@@ -1,0 +1,5 @@
+[asahi-power]
+name=asahi-power — htop-style power monitor for Asahi Linux
+baseurl=https://fiedorpw.github.io/asahi-power/
+enabled=1
+gpgcheck=0
