@@ -66,29 +66,39 @@ ratio_color() {
 	else printf '%s' "$C_RED"; fi
 }
 
-# htop-style meter:  Label      [|||||||||........95.1 W]
-# Bar is scaled against max so all meters share one axis (the PD limit).
-meter() {
-	local label="$1" val="$2" max="$3" width="$4"
-	local text filled i bar color tlen
-	text="$(fmt_w "$val")"
-	((max > 0)) || max=1
-	filled=$((val * width / max))
+# Pad a label to a fixed display width. Done by character count instead of
+# printf's %-Ns, which pads by BYTES and misaligns multibyte labels like "→".
+pad_label() {
+	local label="$1" width="$2"
+	while ((${#label} < width)); do label+=" "; done
+	printf '%s' "$label"
+}
+
+# Generic htop-style bar:  Label      [|||||||||........95.1 W]
+# Text is overlaid on the right end inside the bracket (htop does the same).
+# Args: label, filled count, width, fill char, empty char, color, text.
+draw_bar() {
+	local label="$1" filled="$2" width="$3" fill_ch="$4" empty_ch="$5" color="$6" text="$7"
+	local i bar="" tlen
 	((filled > width)) && filled=$width
 	((filled < 0)) && filled=0
-	color="$(ratio_color "$val" "$max")"
-	# Compose bar: pipes for the filled part, value text overlaid on the
-	# right end of the bar (htop renders its meters the same way).
-	bar=""
 	for ((i = 0; i < width; i++)); do
-		if ((i < filled)); then bar+="|"; else bar+=" "; fi
+		if ((i < filled)); then bar+="$fill_ch"; else bar+="$empty_ch"; fi
 	done
 	tlen=${#text}
 	bar="${bar:0:$((width - tlen))}${text}"
 	# Color only the filled span; the rest stays dim.
-	printf '  %-11s [%s%s%s%s%s]\033[K\n' \
-		"$label" \
+	printf '  %s [%s%s%s%s%s]\033[K\n' \
+		"$(pad_label "$label" 11)" \
 		"$color" "${bar:0:$filled}" "$C_RST$C_DIM" "${bar:$filled}" "$C_RST"
+}
+
+# Power meter scaled against max so all meters share one axis (the PD limit).
+meter() {
+	local label="$1" val="$2" max="$3" width="$4"
+	((max > 0)) || max=1
+	draw_bar "$label" $((val * width / max)) "$width" "|" " " \
+		"$(ratio_color "$val" "$max")" "$(fmt_w "$val")"
 }
 
 # Sparkline from space-separated uW samples, scaled to the largest sample.
@@ -131,15 +141,13 @@ render() {
 	printf '  %s⚡ power%s  %s%s%s\033[K\n' "$C_BOLD" "$C_RST" "$C_DIM" "$(date +%T)" "$C_RST"
 	printf '\033[K\n'
 
-	# Battery gauge with charge percentage.
+	# Battery gauge, rendered inline like the power meters below: same width,
+	# same bracket column, "67% Charging" overlaid inside the bar.
 	local bat_color=$C_GREEN
 	((capacity < 20)) && bat_color=$C_RED
 	((capacity >= 20 && capacity < 40)) && bat_color=$C_YELLOW
-	local bat_filled=$((capacity * bar_width / 100)) i bat_bar=""
-	for ((i = 0; i < bar_width; i++)); do
-		if ((i < bat_filled)); then bat_bar+="█"; else bat_bar+="░"; fi
-	done
-	printf '  %-11s [%s%s%s] %s%% %s\033[K\n' "Battery" "$bat_color" "$bat_bar" "$C_RST" "$capacity" "$status"
+	draw_bar "Battery" $((capacity * bar_width / 100)) "$bar_width" "█" "░" \
+		"$bat_color" "${capacity}% ${status}"
 	printf '\033[K\n'
 
 	# Power chain meters, all on the same axis so proportions are visible.
